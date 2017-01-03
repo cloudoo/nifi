@@ -40,9 +40,9 @@ nf.PolicyManagement = (function () {
 
         $('#search-users-dialog').modal({
             scrollableContentStyle: 'scrollable',
-            headerText: 'Search users',
+            headerText: 'Add Users/Groups',
             buttons: [{
-                buttonText: 'Ok',
+                buttonText: 'Add',
                 color: {
                     base: '#728E9B',
                     hover: '#004849',
@@ -339,43 +339,17 @@ nf.PolicyManagement = (function () {
 
         // policy type listing
         $('#policy-type-list').combo({
-            options: [{
-                text: 'view the user interface',
-                value: 'flow',
-                description: 'Allows users to view the user interface'
-            }, {
-                text: 'access the controller',
-                value: 'controller',
-                description: 'Allows users to view/modify the controller including Reporting Tasks, Controller Services, and Nodes in the Cluster'
-            }, {
-                text: 'query provenance',
-                value: 'provenance',
-                description: 'Allows users to submit a Provenance Search and request Event Lineage'
-            }, {
-                text: 'access all policies',
-                value: 'policies',
-                description: 'Allows users to view/modify the policies for all components'
-            }, {
-                text: 'access users/user groups',
-                value: 'tenants',
-                description: 'Allows users to view/modify the users and user groups'
-            }, {
-                text: 'retrieve site-to-site details',
-                value: 'site-to-site',
-                description: 'Allows other NiFi instances to retrieve Site-To-Site details of this NiFi'
-            }, {
-                text: 'view system diagnostics',
-                value: 'system',
-                description: 'Allows users to view System Diagnostics'
-            }, {
-                text: 'proxy user requests',
-                value: 'proxy',
-                description: 'Allows proxy machines to send requests on the behalf of others'
-            }, {
-                text: 'access counters',
-                value: 'counters',
-                description: 'Allows users to view/modify Counters'
-            }],
+            options: [
+                nf.Common.getPolicyTypeListing('flow'),
+                nf.Common.getPolicyTypeListing('controller'),
+                nf.Common.getPolicyTypeListing('provenance'),
+                nf.Common.getPolicyTypeListing('restricted-components'),
+                nf.Common.getPolicyTypeListing('policies'),
+                nf.Common.getPolicyTypeListing('tenants'),
+                nf.Common.getPolicyTypeListing('site-to-site'),
+                nf.Common.getPolicyTypeListing('system'),
+                nf.Common.getPolicyTypeListing('proxy'),
+                nf.Common.getPolicyTypeListing('counters')],
             select: function (option) {
                 if (initialized) {
                     // record the policy type
@@ -391,7 +365,7 @@ nf.PolicyManagement = (function () {
                         $('#controller-policy-target').hide();
 
                         // record the action
-                        if (option.value === 'proxy') {
+                        if (option.value === 'proxy' || option.value === 'restricted-components') {
                             $('#selected-policy-action').text('write');
                         } else {
                             $('#selected-policy-action').text('read');
@@ -516,9 +490,8 @@ nf.PolicyManagement = (function () {
 
             // see if the user has permissions for the current policy
             var currentEntity = $('#policy-table').data('policy');
-            var resourceComponentId = nf.Common.substringAfterLast(currentEntity.component.resource, '/');
-            var selectedComponentId = $('#selected-policy-component-id').text();
-            if (currentEntity.permissions.canWrite === true && resourceComponentId === selectedComponentId) {
+            var isPolicyEditable = $('#delete-policy-button').is(':disabled') === false;
+            if (currentEntity.permissions.canWrite === true && isPolicyEditable) {
                 markup += '<div title="Remove" class="pointer delete-user fa fa-trash"></div>';
             }
 
@@ -668,8 +641,10 @@ nf.PolicyManagement = (function () {
      */
     var promptToDeletePolicy = function () {
         nf.Dialog.showYesNoDialog({
-            headerText: 'Update Policy',
-            dialogContent: 'Are you sure you want to delete this policy?',
+            headerText: 'Delete Policy',
+            dialogContent: 'By deleting this policy, the permissions for this component will revert to the inherited policy if applicable.',
+            yesText: 'Delete',
+            noText: 'Cancel',
             yesHandler: function () {
                 deletePolicy();
             }
@@ -696,7 +671,7 @@ nf.PolicyManagement = (function () {
             });
         } else {
             nf.Dialog.showOkDialog({
-                headerText: 'Update Policy',
+                headerText: 'Delete Policy',
                 dialogContent: 'No policy selected'
             });
         }
@@ -784,10 +759,23 @@ nf.PolicyManagement = (function () {
             });
 
             // build the mark up
-            return $('<span>Showing effective policy inherited from Process Group </span>').append($('<span class="link"></span>').text(processGroupName).on('click', function () {
-                $('#shell-close-button').click();
-                nf.CanvasUtils.enterGroup(processGroupId);
-            })).append('<span>.</span>');
+            return $('<span>Showing effective policy inherited from Process Group </span>')
+                .append( $('<span class="link ellipsis" style="max-width: 200px; vertical-align: top;"></span>')
+                    .text(processGroupName)
+                    .attr('title', processGroupName)
+                    .on('click', function () {
+                        // close the shell
+                        $('#shell-close-button').click();
+
+                        // load the correct group and unselect everything if necessary
+                        nf.CanvasUtils.enterGroup(processGroupId).done(function () {
+                            nf.CanvasUtils.getSelection().classed('selected', false);
+
+                            // inform Angular app that values have changed
+                            nf.ng.Bridge.digest();
+                        });
+                    })
+            ).append('<span>.</span>');
         }
     };
 
@@ -1416,7 +1404,7 @@ nf.PolicyManagement = (function () {
 
             if (policyType === 'controller') {
                 $('#selected-policy-action').text($('#controller-policy-target').combo('getSelectedOption').value);
-            } else if (policyType === 'proxy') {
+            } else if (policyType === 'proxy' || policyType === 'restricted-components') {
                 $('#selected-policy-action').text('write');
             } else {
                 $('#selected-policy-action').text('read');

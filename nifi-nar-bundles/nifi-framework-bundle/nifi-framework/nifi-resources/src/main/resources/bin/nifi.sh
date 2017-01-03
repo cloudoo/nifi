@@ -248,6 +248,8 @@ run() {
         fi;
 
         NIFI_HOME=$(cygpath --path --windows "${NIFI_HOME}")
+        NIFI_LOG_DIR=$(cygpath --path --windows "${NIFI_LOG_DIR}")
+        NIFI_PID_DIR=$(cygpath --path --windows "${NIFI_PID_DIR}")
         BOOTSTRAP_CONF=$(cygpath --path --windows "${BOOTSTRAP_CONF}")
         BOOTSTRAP_CONF_DIR=$(cygpath --path --windows "${BOOTSTRAP_CONF_DIR}")
         BOOTSTRAP_LIBS=$(cygpath --path --windows "${BOOTSTRAP_LIBS}")
@@ -291,7 +293,7 @@ run() {
     RUN_NIFI_CMD="cd "\""${NIFI_HOME}"\"" && ${sudo_cmd_prefix} "\""${JAVA}"\"" -cp "\""${BOOTSTRAP_CLASSPATH}"\"" -Xms12m -Xmx24m ${BOOTSTRAP_DIR_PARAMS}  org.apache.nifi.bootstrap.RunNiFi"
 
     if [ "$1" = "start" ]; then
-        (eval $RUN_NIFI_CMD $@ &)> /dev/null 2>&1 < /dev/null
+        (eval $RUN_NIFI_CMD $@ &)
     else
         (eval $RUN_NIFI_CMD $@)
     fi

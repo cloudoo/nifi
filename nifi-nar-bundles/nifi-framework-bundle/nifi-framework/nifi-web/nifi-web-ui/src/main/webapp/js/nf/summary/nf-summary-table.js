@@ -266,19 +266,19 @@ nf.SummaryTable = (function () {
             var classes = nf.Common.escapeHtml(value.toLowerCase());
             switch(nf.Common.escapeHtml(value.toLowerCase())) {
                 case 'running':
-                    classes += ' fa fa-play';
+                    classes += ' fa fa-play running';
                     break;
                 case 'stopped':
-                    classes += ' fa fa-stop';
+                    classes += ' fa fa-stop stopped';
                     break;
                 case 'enabled':
-                    classes += ' fa fa-flash';
+                    classes += ' fa fa-flash enabled';
                     break;
                 case 'disabled':
-                    classes += ' icon icon-enable-false';
+                    classes += ' icon icon-enable-false disabled';
                     break;
                 case 'invalid':
-                    classes += ' fa fa-warning';
+                    classes += ' fa fa-warning invalid';
                     break;
                 default:
                     classes += '';
@@ -369,21 +369,19 @@ nf.SummaryTable = (function () {
         if (isClustered || isInShell || nf.Common.SUPPORTS_SVG) {
             // define how the column is formatted
             var processorActionFormatter = function (row, cell, value, columnDef, dataContext) {
-                var markup = '<div style="white-space: normal;">';
+                var markup = '';
 
                 if (isInShell) {
-                    markup += '<div class="pointer go-to fa fa-long-arrow-right" title="Go To Processor" style="margin-right: 3px;"></div>&nbsp;';
+                    markup += '<div class="pointer go-to fa fa-long-arrow-right" title="Go To Processor" style="margin-right: 3px;"></div>';
                 }
 
                 if (nf.Common.SUPPORTS_SVG) {
-                    markup += '<div class="pointer show-processor-status-history fa fa-area-chart" title="View Status History" style="margin-right: 3px;"></div>&nbsp;';
+                    markup += '<div class="pointer show-processor-status-history fa fa-area-chart" title="View Status History" style="margin-right: 3px;"></div>';
                 }
 
                 if (isClustered) {
-                    markup += '<div class="pointer show-cluster-processor-summary fa fa-cubes" title="View Processor Details"></div>&nbsp;';
+                    markup += '<div class="pointer show-cluster-processor-summary fa fa-cubes" title="View Processor Details"></div>';
                 }
-
-                markup += '</div>';
 
                 return markup;
             };
@@ -680,21 +678,19 @@ nf.SummaryTable = (function () {
         if (isClustered || isInShell || nf.Common.SUPPORTS_SVG) {
             // define how the column is formatted
             var connectionActionFormatter = function (row, cell, value, columnDef, dataContext) {
-                var markup = '<div style="white-space: normal;">';
+                var markup = '';
 
                 if (isInShell) {
-                    markup += '<div class="pointer go-to fa fa-long-arrow-right" title="Go To Connection" style="margin-right: 3px;"></div>&nbsp;';
+                    markup += '<div class="pointer go-to fa fa-long-arrow-right" title="Go To Connection" style="margin-right: 3px;"></div>';
                 }
 
                 if (nf.Common.SUPPORTS_SVG) {
-                    markup += '<div class="pointer show-connection-status-history fa fa-area-chart" title="View Status History" style="margin-right: 3px;"></div>&nbsp;';
+                    markup += '<div class="pointer show-connection-status-history fa fa-area-chart" title="View Status History" style="margin-right: 3px;"></div>';
                 }
 
                 if (isClustered) {
-                    markup += '<div class="pointer show-cluster-connection-summary fa fa-cubes" title="View Connection Details"></div>&nbsp;';
+                    markup += '<div class="pointer show-cluster-connection-summary fa fa-cubes" title="View Connection Details"></div>';
                 }
-
-                markup += '</div>';
 
                 return markup;
             };
@@ -961,21 +957,19 @@ nf.SummaryTable = (function () {
         if (isClustered || isInShell || nf.Common.SUPPORTS_SVG) {
             // define how the column is formatted
             var processGroupActionFormatter = function (row, cell, value, columnDef, dataContext) {
-                var markup = '<div style="white-space: normal;">';
+                var markup = '';
 
                 if (isInShell && dataContext.groupId !== null) {
-                    markup += '<div class="pointer go-to fa fa-long-arrow-right" title="Go To Process Group" style="margin-right: 3px;"></div>&nbsp;';
+                    markup += '<div class="pointer go-to fa fa-long-arrow-right" title="Go To Process Group" style="margin-right: 3px;"></div>';
                 }
 
                 if (nf.Common.SUPPORTS_SVG) {
-                    markup += '<div class="pointer show-process-group-status-history fa fa-area-chart" title="View Status History" style="margin-right: 3px;"></div>&nbsp;';
+                    markup += '<div class="pointer show-process-group-status-history fa fa-area-chart" title="View Status History" style="margin-right: 3px;"></div>';
                 }
 
                 if (isClustered) {
-                    markup += '<div class="pointer show-cluster-process-group-summary fa fa-cubes" title="View Process Group Details"></div>&nbsp;';
+                    markup += '<div class="pointer show-cluster-process-group-summary fa fa-cubes" title="View Process Group Details"></div>';
                 }
-
-                markup += '</div>';
 
                 return markup;
             };
@@ -1216,17 +1210,15 @@ nf.SummaryTable = (function () {
         if (isClustered || isInShell) {
             // define how the column is formatted
             var inputPortActionFormatter = function (row, cell, value, columnDef, dataContext) {
-                var markup = '<div style="white-space: normal;">';
+                var markup = '';
 
                 if (isInShell) {
-                    markup += '<div class="pointer go-to fa fa-long-arrow-right" title="Go To Input Port" style="margin-right: 3px;"></div>&nbsp;';
+                    markup += '<div class="pointer go-to fa fa-long-arrow-right" title="Go To Input Port" style="margin-right: 3px;"></div>';
                 }
 
                 if (isClustered) {
-                    markup += '<div class="pointer show-cluster-input-port-summary fa fa-cubes" title="View Input Port Details"></div>&nbsp;';
+                    markup += '<div class="pointer show-cluster-input-port-summary fa fa-cubes" title="View Input Port Details"></div>';
                 }
-
-                markup += '</div>';
 
                 return markup;
             };
@@ -1458,17 +1450,15 @@ nf.SummaryTable = (function () {
         if (isClustered || isInShell) {
             // define how the column is formatted
             var outputPortActionFormatter = function (row, cell, value, columnDef, dataContext) {
-                var markup = '<div style="white-space: normal;">';
+                var markup = '';
 
                 if (isInShell) {
-                    markup += '<div class="pointer go-to fa fa-long-arrow-right" title="Go To Output Port" style="margin-right: 3px;"></div>&nbsp;';
+                    markup += '<div class="pointer go-to fa fa-long-arrow-right" title="Go To Output Port" style="margin-right: 3px;"></div>';
                 }
 
                 if (isClustered) {
-                    markup += '<div class="pointer show-cluster-output-port-summary fa fa-cubes" title="View Output Port Details"></div>&nbsp;';
+                    markup += '<div class="pointer show-cluster-output-port-summary fa fa-cubes" title="View Output Port Details"></div>';
                 }
-
-                markup += '</div>';
 
                 return markup;
             };
@@ -1707,8 +1697,8 @@ nf.SummaryTable = (function () {
             }
 
             // generate the mark up
-            var formattedValue = '<div class="' + transmissionClass + '" style="margin-top: 5px;"></div>';
-            return formattedValue + '<div class="status-text" style="margin-top: 4px;">' + transmissionLabel + '</div><div style="float: left; margin-left: 4px;">' + nf.Common.escapeHtml(activeThreadCount) + '</div>';
+            var formattedValue = '<div layout="row"><div class="' + transmissionClass + '"></div>';
+            return formattedValue + '<div class="status-text" style="margin-top: 4px;">' + transmissionLabel + '</div><div style="float: left; margin-left: 4px;">' + nf.Common.escapeHtml(activeThreadCount) + '</div></div>';
         };
 
         var transmissionStatusColumn = {
@@ -1751,21 +1741,19 @@ nf.SummaryTable = (function () {
         if (isClustered || isInShell || nf.Common.SUPPORTS_SVG) {
             // define how the column is formatted
             var remoteProcessGroupActionFormatter = function (row, cell, value, columnDef, dataContext) {
-                var markup = '<div style="white-space: normal;">';
+                var markup = '';
 
                 if (isInShell) {
-                    markup += '<div class="pointer go-to fa fa-long-arrow-right" title="Go To Process Group" style="margin-right: 3px;"></div>&nbsp;';
+                    markup += '<div class="pointer go-to fa fa-long-arrow-right" title="Go To Process Group" style="margin-right: 3px;"></div>';
                 }
 
                 if (nf.Common.SUPPORTS_SVG) {
-                    markup += '<div class="pointer show-remote-process-group-status-history fa fa-area-chart" title="View Status History" style="margin-right: 3px;"></div>&nbsp;';
+                    markup += '<div class="pointer show-remote-process-group-status-history fa fa-area-chart" title="View Status History" style="margin-right: 3px;"></div>';
                 }
 
                 if (isClustered) {
-                    markup += '<div class="pointer show-cluster-remote-process-group-summary fa fa-cubes" title="View Remote Process Group Details"></div>&nbsp;';
+                    markup += '<div class="pointer show-cluster-remote-process-group-summary fa fa-cubes" title="View Remote Process Group Details"></div>';
                 }
-
-                markup += '</div>';
 
                 return markup;
             };
@@ -2010,6 +1998,9 @@ nf.SummaryTable = (function () {
             }, {
                 name: 'System',
                 tabContentId: 'system-tab-content'
+            }, {
+                name: 'Version',
+                tabContentId: 'version-tab-content'
             }]
         });
 
@@ -2112,8 +2103,8 @@ nf.SummaryTable = (function () {
                     return aPercentUseDataSize - bPercentUseDataSize;
                 }
             } else if (sortDetails.columnId === 'sent' || sortDetails.columnId === 'received' || sortDetails.columnId === 'input' || sortDetails.columnId === 'output' || sortDetails.columnId === 'transferred') {
-                var aSplit = a[sortDetails.columnId].split(/ \/ /);
-                var bSplit = b[sortDetails.columnId].split(/ \/ /);
+                var aSplit = a[sortDetails.columnId].split(/\(([^)]+)\)/);
+                var bSplit = b[sortDetails.columnId].split(/\(([^)]+)\)/);
                 var mod = sortState[tableId].count % 4;
                 if (mod < 2) {
                     $('#' + tableId + ' span.' + sortDetails.columnId + '-title').addClass('sorted');
@@ -2293,6 +2284,28 @@ nf.SummaryTable = (function () {
                 addStorageUsage(contentRepositoryUsageContainer, contentRepository);
             });
 
+            // Version
+            var versionSpanSelectorToFieldMap = {
+                '#version-nifi': aggregateSnapshot.versionInfo.niFiVersion,
+                '#version-build-tag': aggregateSnapshot.versionInfo.buildTag,
+                '#version-build-timestamp': aggregateSnapshot.versionInfo.buildTimestamp,
+                '#version-build-branch': aggregateSnapshot.versionInfo.buildBranch,
+                '#version-build-revision': aggregateSnapshot.versionInfo.buildRevision,
+                '#version-java-version': aggregateSnapshot.versionInfo.javaVersion,
+                '#version-java-vendor': aggregateSnapshot.versionInfo.javaVendor,
+                '#version-os-name': aggregateSnapshot.versionInfo.osName,
+                '#version-os-version': aggregateSnapshot.versionInfo.osVersion,
+                '#version-os-arch': aggregateSnapshot.versionInfo.osArchitecture
+            };
+            for (versionSpanSelector in versionSpanSelectorToFieldMap) {
+                var dataField = versionSpanSelectorToFieldMap[versionSpanSelector];
+                if (dataField) {
+                    $(versionSpanSelector).text(dataField);
+                } else {
+                    $(versionSpanSelector).text('(not available)').addClass('unset');
+                }
+            }
+
             // update the stats last refreshed timestamp
             $('#system-diagnostics-last-refreshed').text(aggregateSnapshot.statsLastRefreshed);
         }).fail(nf.Common.handleAjaxError);
@@ -2470,6 +2483,7 @@ nf.SummaryTable = (function () {
 
                 // populate the processor details
                 $('#cluster-processor-name').text(processorStatus.name).ellipsis();
+                $('#cluster-processor-type').text(processorStatus.aggregateSnapshot.type).ellipsis();
                 $('#cluster-processor-id').text(processorStatus.id);
                 $('#cluster-processor-group-id').text(processorStatus.groupId);
 
@@ -2526,6 +2540,7 @@ nf.SummaryTable = (function () {
 
                 // populate the processor details
                 $('#cluster-connection-name').text(connectionStatus.name).ellipsis();
+                $('#cluster-connection-type').text('Connection').ellipsis();
                 $('#cluster-connection-id').text(connectionStatus.id);
                 $('#cluster-connection-group-id').text(connectionStatus.groupId);
 
@@ -2586,6 +2601,7 @@ nf.SummaryTable = (function () {
 
                 // populate the input port details
                 $('#cluster-process-group-name').text(processGroupStatus.name).ellipsis();
+                $('#cluster-process-group-type').text('Process Group').ellipsis();
                 $('#cluster-process-group-id').text(processGroupStatus.id);
 
                 // update the stats last refreshed timestamp
@@ -2637,6 +2653,7 @@ nf.SummaryTable = (function () {
 
                 // populate the input port details
                 $('#cluster-input-port-name').text(inputPortStatus.name).ellipsis();
+                $('#cluster-input-port-type').text('Input Port').ellipsis();
                 $('#cluster-input-port-id').text(inputPortStatus.id);
                 $('#cluster-input-port-group-id').text(inputPortStatus.groupId);
 
@@ -2689,6 +2706,7 @@ nf.SummaryTable = (function () {
 
                 // populate the output port details
                 $('#cluster-output-port-name').text(outputPortStatus.name).ellipsis();
+                $('#cluster-output-port-type').text('Output Port').ellipsis();
                 $('#cluster-output-port-id').text(outputPortStatus.id);
                 $('#cluster-output-port-group-id').text(outputPortStatus.groupId);
 
@@ -2743,6 +2761,7 @@ nf.SummaryTable = (function () {
 
                 // populate the remote process group details
                 $('#cluster-remote-process-group-name').text(remoteProcessGroupStatus.name).ellipsis();
+                $('#cluster-remote-process-group-type').text('Remote Process Group').ellipsis();
                 $('#cluster-remote-process-group-id').text(remoteProcessGroupStatus.id);
                 $('#cluster-remote-process-group-group-id').text(remoteProcessGroupStatus.groupId);
 

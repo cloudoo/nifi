@@ -24,9 +24,12 @@ import java.net.InetSocketAddress;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -197,6 +200,12 @@ public abstract class NiFiProperties {
 
     // expression language properties
     public static final String VARIABLE_REGISTRY_PROPERTIES = "nifi.variable.registry.properties";
+
+    // build info
+    public static final String BUILD_TAG = "nifi.build.tag";
+    public static final String BUILD_BRANCH = "nifi.build.branch";
+    public static final String BUILD_REVISION = "nifi.build.revision";
+    public static final String BUILD_TIMESTAMP = "nifi.build.timestamp";
 
     // defaults
     public static final String DEFAULT_TITLE = "NiFi";
@@ -992,6 +1001,21 @@ public abstract class NiFiProperties {
         }
     }
 
+    public Date getBuildTimestamp() {
+        String buildTimestampString = getProperty(NiFiProperties.BUILD_TIMESTAMP);
+        if (!StringUtils.isEmpty(buildTimestampString)) {
+            try {
+                SimpleDateFormat buildTimestampFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
+                Date buildTimestampDate = buildTimestampFormat.parse(buildTimestampString);
+                return buildTimestampDate;
+            } catch (ParseException parseEx) {
+                return null;
+            }
+        } else {
+            return null;
+        }
+    }
+
     public int size() {
         return getPropertyKeys().size();
     }
@@ -1060,6 +1084,20 @@ public abstract class NiFiProperties {
                 return properties.stringPropertyNames();
             }
         };
+    }
+
+    /**
+     * This method is used to validate the NiFi properties when the file is loaded
+     * for the first time. The objective is to stop NiFi startup in case a property
+     * is not correctly configured and could cause issues afterwards.
+     */
+    public void validate() {
+        // REMOTE_INPUT_HOST should be a valid hostname
+        String remoteInputHost = getProperty(REMOTE_INPUT_HOST);
+        if(!StringUtils.isBlank(remoteInputHost) && remoteInputHost.split(":").length > 1) { // no scheme/port needed here (http://)
+            throw new IllegalArgumentException(remoteInputHost + " is not a correct value for " + REMOTE_INPUT_HOST + ". It should be a valid hostname without protocol or port.");
+        }
+        // Other properties to validate...
     }
 
 }

@@ -75,7 +75,6 @@ div.processor-configuration-warning-icon:before {
     font-family: FontAwesome;
     content: "\f071";
     font-size: 16px;
-    color: #ba554a;
 }
 
 #auto-terminate-relationship-names {
@@ -110,6 +109,7 @@ div.relationship-description {
 #run-duration-slider {
     margin-top: 5px;
     border-radius: 0;
+    margin-right: 2px;
 }
 
 #run-duration-slider .ui-slider-handle {

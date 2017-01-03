@@ -191,7 +191,36 @@ nf.ClusterTable = (function () {
        }]
     };
 
-    var clusterTabs = [nodesTab, systemTab, jvmTab, flowFileTab, contentTab];
+    var versionTab = {
+        name: 'Versions',
+        data: {
+            dataSet: 'systemDiagnostics',
+            update: updateVersionTableData
+        },
+        tabContentId: 'cluster-version-tab-content',
+        tableId: 'cluster-version-table',
+        tableColumnModel: [
+            {id: 'node', field: 'node', name: 'Node Address', sortable: true, resizable: true},
+            {id: 'version', field: 'version', name: 'NiFi Version', sortable: true, resizable: true},
+            {id: 'javavendor', field: 'javaVendor', name: 'Java Vendor', sortable: true, resizable: true},
+            {id: 'javaversion', field: 'javaVersion', name: 'Java Version', sortable: true, resizable: true},
+            {id: 'osname', field: 'osName', name: 'OS Name', sortable: true, resizable: true},
+            {id: 'osversion', field: 'osVersion', name: 'OS Version', sortable: true, resizable: true},
+            {id: 'osarch', field: 'osArchitecture', name: 'OS Architecture', sortable: true, resizable: true}
+        ],
+        tableIdColumn: 'id',
+        tableOptions: commonTableOptions,
+        tableOnClick: null,
+        init: commonTableInit,
+        onSort: sort,
+        onTabSelected: onSelectTab,
+        filterOptions: [{
+            text: 'by address',
+            value: 'address'
+        }]
+    };
+
+    var clusterTabs = [nodesTab, systemTab, jvmTab, flowFileTab, contentTab, versionTab];
     var tabsByName = {};
     var dataSetHandlers = {};
 
@@ -253,9 +282,6 @@ nf.ClusterTable = (function () {
                 var canDisconnect = false;
                 var canConnect = false;
 
-                // determine if this node is already the primary
-                var isPrimary = dataContext.primary;
-
                 // determine the current status
                 if (dataContext.status === 'CONNECTED' || dataContext.status === 'CONNECTING') {
                     canDisconnect = true;
@@ -265,7 +291,7 @@ nf.ClusterTable = (function () {
 
                 // return the appropriate markup
                 if (canConnect) {
-                    return '<div title="Connect" class="pointer prompt-for-connect fa fa-plug" style="margin-top: 2px;"></div>&nbsp;<div title="Delete" class="pointer prompt-for-removal fa fa-trash" style="margin-top: 2px;"></div>';
+                    return '<div title="Connect" class="pointer prompt-for-connect fa fa-plug" style="margin-top: 2px;"></div><div title="Delete" class="pointer prompt-for-removal fa fa-trash" style="margin-top: 2px;"></div>';
                 } else if (canDisconnect) {
                     return '<div title="Disconnect" class="pointer prompt-for-disconnect fa fa-power-off" style="margin-top: 2px;"></div>';
                 } else {
@@ -766,6 +792,35 @@ nf.ClusterTable = (function () {
             contentTab.grid.invalidate();
         } else {
             contentTab.rowCount = 0;
+        }
+    }
+
+    /**
+     * Applies system diagnostics data to the Versions tab.
+     */
+    function updateVersionTableData (systemDiagnosticsResponse) {
+        if (nf.Common.isDefinedAndNotNull(systemDiagnosticsResponse.systemDiagnostics)
+            && nf.Common.isDefinedAndNotNull(systemDiagnosticsResponse.systemDiagnostics.nodeSnapshots)) {
+
+            var versionTableRows = [];
+            systemDiagnosticsResponse.systemDiagnostics.nodeSnapshots.forEach(function (nodeSnapshot) {
+                var snapshot = nodeSnapshot.snapshot;
+                versionTableRows.push({
+                    id: nodeSnapshot.nodeId,
+                    address: nodeSnapshot.address,
+                    node: nodeSnapshot.address + ':' + nodeSnapshot.apiPort,
+                    version: snapshot.versionInfo.niFiVersion,
+                    javaVendor: snapshot.versionInfo.javaVendor,
+                    javaVersion: snapshot.versionInfo.javaVersion,
+                    osName: snapshot.versionInfo.osName,
+                    osVersion: snapshot.versionInfo.osVersion,
+                    osArchitecture: snapshot.versionInfo.osArchitecture
+                });
+            });
+
+            versionTab.dataView.setItems(versionTableRows);
+            versionTab.dataView.reSort();
+            versionTab.grid.invalidate();
         }
     }
 

@@ -16,7 +16,7 @@
  */
 package org.apache.nifi.groups;
 
-import org.apache.nifi.authorization.resource.Authorizable;
+import org.apache.nifi.authorization.resource.ComponentAuthorizable;
 import org.apache.nifi.connectable.Connectable;
 import org.apache.nifi.connectable.Connection;
 import org.apache.nifi.connectable.Funnel;
@@ -30,6 +30,7 @@ import org.apache.nifi.controller.label.Label;
 import org.apache.nifi.controller.service.ControllerServiceNode;
 import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.processor.Processor;
+import org.apache.nifi.remote.RemoteGroupPort;
 
 import java.util.Collection;
 import java.util.List;
@@ -45,7 +46,7 @@ import java.util.function.Predicate;
  * <p>
  * MUST BE THREAD-SAFE</p>
  */
-public interface ProcessGroup extends Authorizable, Positionable {
+public interface ProcessGroup extends ComponentAuthorizable, Positionable {
 
     /**
      * Predicate for filtering schedulable Processors.
@@ -731,9 +732,16 @@ public interface ProcessGroup extends Authorizable, Positionable {
      * @param identifier of connectable
      * @return the Connectable with the given ID, if it exists; otherwise
      * returns null. This performs a recursive search of all ProcessGroups'
-     * input ports, output ports, funnels, processors, and remote process groups
+     * input ports, output ports, funnels, processors
      */
-    Connectable findConnectable(String identifier);
+    Connectable findLocalConnectable(String identifier);
+
+    /**
+     * @param identifier of remote group port
+     * @return the RemoteGroupPort with the given ID, if it exists; otherwise
+     * returns null.
+     */
+    RemoteGroupPort findRemoteGroupPort(String identifier);
 
     /**
      * @return a Set of all {@link org.apache.nifi.connectable.Positionable}s contained within this

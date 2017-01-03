@@ -17,18 +17,18 @@
 package org.apache.nifi.processors.standard;
 
 import static org.junit.Assert.assertEquals;
-import org.apache.nifi.flowfile.attributes.CoreAttributes;
-import org.apache.nifi.util.MockFlowFile;
-import org.apache.nifi.util.TestRunner;
-import org.apache.nifi.util.TestRunners;
-
-import org.junit.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+
+import org.apache.nifi.flowfile.attributes.CoreAttributes;
+import org.apache.nifi.util.MockFlowFile;
+import org.apache.nifi.util.TestRunner;
+import org.apache.nifi.util.TestRunners;
+import org.junit.Test;
 
 public class TestSplitText {
 
@@ -176,7 +176,7 @@ public class TestSplitText {
 
         runner.assertTransferCount(SplitText.REL_FAILURE, 0);
         runner.assertTransferCount(SplitText.REL_ORIGINAL, 1);
-        runner.assertTransferCount(SplitText.REL_SPLITS, 0);
+        runner.assertTransferCount(SplitText.REL_SPLITS, 1);
 
         // repeat with header cou8nt versus header marker
         runner.clearTransferState();
@@ -189,7 +189,7 @@ public class TestSplitText {
 
         runner.assertTransferCount(SplitText.REL_FAILURE, 0);
         runner.assertTransferCount(SplitText.REL_ORIGINAL, 1);
-        runner.assertTransferCount(SplitText.REL_SPLITS, 0);
+        runner.assertTransferCount(SplitText.REL_SPLITS, 1);
 
         // repeat single header line with no newline characters
         runner.clearTransferState();
@@ -202,7 +202,7 @@ public class TestSplitText {
 
         runner.assertTransferCount(SplitText.REL_FAILURE, 0);
         runner.assertTransferCount(SplitText.REL_ORIGINAL, 1);
-        runner.assertTransferCount(SplitText.REL_SPLITS, 0);
+        runner.assertTransferCount(SplitText.REL_SPLITS, 1);
     }
 
     @Test
@@ -355,6 +355,32 @@ public class TestSplitText {
         runner.enqueue(file);
         runner.run();
         runner.assertTransferCount(SplitText.REL_SPLITS, 4);
+    }
+
+    @Test
+    public void testZeroByteInputWithoutHeader() throws IOException {
+        final TestRunner runner = TestRunners.newTestRunner(new SplitText());
+        runner.setProperty(SplitText.HEADER_LINE_COUNT, "0");
+        runner.setProperty(SplitText.LINE_SPLIT_COUNT, "1");
+
+        runner.enqueue("".getBytes());
+        runner.run();
+        runner.assertTransferCount(SplitText.REL_SPLITS, 0);
+        runner.assertTransferCount(SplitText.REL_ORIGINAL, 1);
+        runner.assertTransferCount(SplitText.REL_FAILURE, 0);
+    }
+
+    @Test
+    public void testZeroByteInput() throws IOException {
+        final TestRunner runner = TestRunners.newTestRunner(new SplitText());
+        runner.setProperty(SplitText.HEADER_LINE_COUNT, "1");
+        runner.setProperty(SplitText.LINE_SPLIT_COUNT, "1");
+
+        runner.enqueue("".getBytes());
+        runner.run();
+        runner.assertTransferCount(SplitText.REL_SPLITS, 0);
+        runner.assertTransferCount(SplitText.REL_ORIGINAL, 1);
+        runner.assertTransferCount(SplitText.REL_FAILURE, 0);
     }
 
     @Test
@@ -813,7 +839,7 @@ public class TestSplitText {
 
         final List<MockFlowFile> splits = splitRunner.getFlowFilesForRelationship(SplitText.REL_SPLITS);
         splits.get(0).assertContentEquals("\n\n1");
-        splits.get(1).assertContentEquals("");
+        splits.get(1).assertContentEquals("\n");
     }
 
 }

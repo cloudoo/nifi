@@ -18,14 +18,26 @@ package org.apache.nifi.processors.standard;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.io.RandomAccessFile;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.regex.Pattern;
 
+import org.apache.nifi.components.state.Scope;
+import org.apache.nifi.components.state.StateMap;
 import org.apache.nifi.processors.standard.TailFile.TailFileState;
+import org.apache.nifi.state.MockStateManager;
+import org.apache.nifi.stream.io.ByteArrayOutputStream;
 import org.apache.nifi.util.MockFlowFile;
 import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
@@ -37,6 +49,7 @@ import org.junit.Test;
 public class TestTailFile {
 
     private File file;
+    private File existingFile;
     private File otherFile;
 
     private RandomAccessFile raf;
@@ -53,6 +66,19 @@ public class TestTailFile {
         file = new File("target/log.txt");
         file.delete();
         assertTrue(file.createNewFile());
+
+        existingFile = new File("target/existing-log.txt");
+        existingFile.delete();
+        assertTrue(existingFile.createNewFile());
+        try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(existingFile)))) {
+            writer.write("Line 1");
+            writer.newLine();
+            writer.write("Line 2");
+            writer.newLine();
+            writer.write("Line 3");
+            writer.newLine();
+            writer.flush();
+        }
 
         File directory = new File("target/testDir");
         if(!directory.exists()) {
@@ -547,7 +573,13 @@ public class TestTailFile {
     public void testMultipleFiles() throws IOException, InterruptedException {
         runner.setProperty(TailFile.BASE_DIRECTORY, "target");
         runner.setProperty(TailFile.MODE, TailFile.MODE_MULTIFILE);
-        runner.setProperty(TailFile.FILENAME, "(testDir/)?log(ging)?.txt");
+        final String fileRegex;
+        if (File.separator.equals("/")) {
+            fileRegex = "(testDir/)?log(ging)?.txt";
+        } else {
+            fileRegex = "(testDir" + Pattern.quote(File.separator) + ")?log(ging)?.txt";
+        }
+        runner.setProperty(TailFile.FILENAME, fileRegex);
         runner.setProperty(TailFile.ROLLING_FILENAME_PATTERN, "${filename}.?");
         runner.setProperty(TailFile.START_POSITION, TailFile.START_CURRENT_FILE);
         runner.setProperty(TailFile.RECURSIVE, "true");
@@ -570,12 +602,18 @@ public class TestTailFile {
 
         runner.run(1);
         runner.assertAllFlowFilesTransferred(TailFile.REL_SUCCESS, 3);
-        runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).get(0).assertContentEquals("hey\n");
-        runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).get(0).assertAttributeEquals("tailfile.original.path", thirdFile.getPath());
-        runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).get(1).assertContentEquals("hi\n");
-        runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).get(1).assertAttributeEquals("tailfile.original.path", otherFile.getPath());
-        runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).get(2).assertContentEquals("hello\n");
-        runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).get(2).assertAttributeEquals("tailfile.original.path", file.getPath());
+        Optional<MockFlowFile> thirdFileFF = runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS)
+                .stream().filter(mockFlowFile -> mockFlowFile.isAttributeEqual("tailfile.original.path", thirdFile.getPath())).findFirst();
+        assertTrue(thirdFileFF.isPresent());
+        thirdFileFF.get().assertContentEquals("hey\n");
+        Optional<MockFlowFile> otherFileFF = runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS)
+                .stream().filter(mockFlowFile -> mockFlowFile.isAttributeEqual("tailfile.original.path", otherFile.getPath())).findFirst();
+        assertTrue(otherFileFF.isPresent());
+        otherFileFF.get().assertContentEquals("hi\n");
+        Optional<MockFlowFile> fileFF = runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS)
+                .stream().filter(mockFlowFile -> mockFlowFile.isAttributeEqual("tailfile.original.path", file.getPath())).findFirst();
+        assertTrue(fileFF.isPresent());
+        fileFF.get().assertContentEquals("hello\n");
         runner.clearTransferState();
 
         otherRaf.write("world!".getBytes());
@@ -613,11 +651,38 @@ public class TestTailFile {
         runner.run(1);
 
         runner.assertAllFlowFilesTransferred(TailFile.REL_SUCCESS, 5);
-        runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).get(0).assertContentEquals("3\n");
-        runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).get(1).assertContentEquals("world!");
-        runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).get(2).assertContentEquals("2\n");
-        runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).get(3).assertContentEquals("world");
-        runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).get(4).assertContentEquals("1\n");
+        assertTrue(runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).stream().anyMatch(mockFlowFile -> mockFlowFile.isContentEqual("3\n")));
+        assertTrue(runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).stream().anyMatch(mockFlowFile -> mockFlowFile.isContentEqual("world!")));
+        assertTrue(runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).stream().anyMatch(mockFlowFile -> mockFlowFile.isContentEqual("2\n")));
+        assertTrue(runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).stream().anyMatch(mockFlowFile -> mockFlowFile.isContentEqual("world")));
+        assertTrue(runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).stream().anyMatch(mockFlowFile -> mockFlowFile.isContentEqual("1\n")));
+    }
+
+    @Test
+    public void testMultipleFilesWithBasedirAndFilenameEL() throws IOException, InterruptedException {
+        runner.setVariable("vrBaseDirectory", "target");
+        runner.setProperty(TailFile.BASE_DIRECTORY, "${vrBaseDirectory}");
+        runner.setProperty(TailFile.MODE, TailFile.MODE_MULTIFILE);
+        final String fileRegex;
+        if (File.separator.equals("/")) {
+            fileRegex = "(testDir/)?log(ging)?.txt";
+        } else {
+            fileRegex = "(testDir" + Pattern.quote(File.separator) + ")?log(ging)?.txt";
+        }
+        runner.setVariable("vrFilename", fileRegex);
+        runner.setProperty(TailFile.FILENAME, "${vrFilename}");
+        runner.setProperty(TailFile.ROLLING_FILENAME_PATTERN, "${filename}.?");
+        runner.setProperty(TailFile.START_POSITION, TailFile.START_CURRENT_FILE);
+        runner.setProperty(TailFile.RECURSIVE, "true");
+
+        runner.run(1);
+        runner.assertAllFlowFilesTransferred(TailFile.REL_SUCCESS, 0);
+
+        otherRaf.write("hi\n".getBytes());
+        raf.write("hello\n".getBytes());
+
+        runner.run(1);
+        runner.assertAllFlowFilesTransferred(TailFile.REL_SUCCESS, 2);
     }
 
     /**
@@ -648,10 +713,14 @@ public class TestTailFile {
 
         runner.run(1);
         runner.assertAllFlowFilesTransferred(TailFile.REL_SUCCESS, 2);
-        runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).get(0).assertContentEquals("hey\n");
-        runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).get(0).assertAttributeEquals("tailfile.original.path", myOtherFile.getPath());
-        runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).get(1).assertContentEquals("hello\n");
-        runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).get(1).assertAttributeEquals("tailfile.original.path", file.getPath());
+        Optional<MockFlowFile> myOtherFileFF = runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS)
+                .stream().filter(mockFlowFile -> mockFlowFile.isAttributeEqual("tailfile.original.path", myOtherFile.getPath())).findFirst();
+        assertTrue(myOtherFileFF.isPresent());
+        myOtherFileFF.get().assertContentEquals("hey\n");
+        Optional<MockFlowFile> fileFF = runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS)
+                .stream().filter(mockFlowFile -> mockFlowFile.isAttributeEqual("tailfile.original.path", file.getPath())).findFirst();
+        assertTrue(fileFF.isPresent());
+        fileFF.get().assertContentEquals("hello\n");
         runner.clearTransferState();
 
         myOtherRaf.write("guys".getBytes());
@@ -679,10 +748,10 @@ public class TestTailFile {
         runner.run(1);
 
         runner.assertAllFlowFilesTransferred(TailFile.REL_SUCCESS, 4);
-        runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).get(0).assertContentEquals("guys");
-        runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).get(1).assertContentEquals("2\n");
-        runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).get(2).assertContentEquals("world");
-        runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).get(3).assertContentEquals("1\n");
+        assertTrue(runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).stream().anyMatch(mockFlowFile -> mockFlowFile.isContentEqual("guys")));
+        assertTrue(runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).stream().anyMatch(mockFlowFile -> mockFlowFile.isContentEqual("2\n")));
+        assertTrue(runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).stream().anyMatch(mockFlowFile -> mockFlowFile.isContentEqual("world")));
+        assertTrue(runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).stream().anyMatch(mockFlowFile -> mockFlowFile.isContentEqual("1\n")));
     }
 
     @Test
@@ -715,8 +784,8 @@ public class TestTailFile {
 
         runner.run(1, false);
         runner.assertAllFlowFilesTransferred(TailFile.REL_SUCCESS, 2);
-        runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).get(0).assertContentEquals("hello\n");
-        runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).get(1).assertContentEquals("hey\n");
+        assertTrue(runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).stream().anyMatch(mockFlowFile -> mockFlowFile.isContentEqual("hello\n")));
+        assertTrue(runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).stream().anyMatch(mockFlowFile -> mockFlowFile.isContentEqual("hey\n")));
         runner.clearTransferState();
 
         multiChangeFirstRaf.write("hey2\n".getBytes());
@@ -726,8 +795,8 @@ public class TestTailFile {
         runner.run(1, false);
 
         runner.assertAllFlowFilesTransferred(TailFile.REL_SUCCESS, 2);
-        runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).get(0).assertContentEquals("hello2\n");
-        runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).get(1).assertContentEquals("hey2\n");
+        assertTrue(runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).stream().anyMatch(mockFlowFile -> mockFlowFile.isContentEqual("hello2\n")));
+        assertTrue(runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).stream().anyMatch(mockFlowFile -> mockFlowFile.isContentEqual("hey2\n")));
         runner.clearTransferState();
 
         multiChangeFirstRaf.write("hey3\n".getBytes());
@@ -760,11 +829,81 @@ public class TestTailFile {
         multiChangeSndRaf.close();
 
         runner.assertAllFlowFilesTransferred(TailFile.REL_SUCCESS, 4);
-        runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).get(0).assertContentEquals("hello3\n");
-        runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).get(1).assertContentEquals("hello\n");
-        runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).get(2).assertContentEquals("hey3\n");
-        runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).get(3).assertContentEquals("hey\n");
+        assertTrue(runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).stream().anyMatch(mockFlowFile -> mockFlowFile.isContentEqual("hello3\n")));
+        assertTrue(runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).stream().anyMatch(mockFlowFile -> mockFlowFile.isContentEqual("hello\n")));
+        assertTrue(runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).stream().anyMatch(mockFlowFile -> mockFlowFile.isContentEqual("hey3\n")));
+        assertTrue(runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).stream().anyMatch(mockFlowFile -> mockFlowFile.isContentEqual("hey\n")));
         runner.clearTransferState();
+    }
+
+    @Test
+    public void testMigrateFrom100To110() throws IOException {
+
+        runner.setProperty(TailFile.FILENAME, "target/existing-log.txt");
+
+        final MockStateManager stateManager = runner.getStateManager();
+
+        // Before NiFi 1.1.0, TailFile only handles single file
+        // and state key doesn't have index in it.
+        final Map<String, String> state = new HashMap<>();
+        state.put("filename", "target/existing-log.txt");
+        // Simulate that it has been tailed up to the 2nd line.
+        state.put("checksum", "2279929157");
+        state.put("position", "14");
+        state.put("timestamp", "1480639134000");
+        stateManager.setState(state, Scope.LOCAL);
+
+        runner.run();
+
+        runner.assertAllFlowFilesTransferred(TailFile.REL_SUCCESS, 1);
+        final MockFlowFile flowFile = runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).iterator().next();
+
+        final ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        try (final BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(bos))) {
+            writer.write("Line 3");
+            writer.newLine();
+        }
+
+        flowFile.assertContentEquals(bos.toByteArray());
+
+        // The old states should be replaced with new ones.
+        final StateMap updatedState = stateManager.getState(Scope.LOCAL);
+        assertNull(updatedState.get("filename"));
+        assertNull(updatedState.get("checksum"));
+        assertNull(updatedState.get("position"));
+        assertNull(updatedState.get("timestamp"));
+        assertEquals("target/existing-log.txt", updatedState.get("file.0.filename"));
+        assertEquals("3380848603", updatedState.get("file.0.checksum"));
+        assertEquals("21", updatedState.get("file.0.position"));
+        assertNotNull(updatedState.get("file.0.timestamp"));
+
+        // When it runs again, the state is already migrated, so it shouldn't emit any flow files.
+        runner.clearTransferState();
+        runner.run();
+        runner.assertAllFlowFilesTransferred(TailFile.REL_SUCCESS, 0);
+    }
+
+
+    @Test
+    public void testMigrateFrom100To110FileNotFound() throws IOException {
+
+        runner.setProperty(TailFile.FILENAME, "target/not-existing-log.txt");
+
+        final MockStateManager stateManager = runner.getStateManager();
+
+        // Before NiFi 1.1.0, TailFile only handles single file
+        // and state key doesn't have index in it.
+        final Map<String, String> state = new HashMap<>();
+        state.put("filename", "target/not-existing-log.txt");
+        // Simulate that it has been tailed up to the 2nd line.
+        state.put("checksum", "2279929157");
+        state.put("position", "14");
+        state.put("timestamp", "1480639134000");
+        stateManager.setState(state, Scope.LOCAL);
+
+        runner.run();
+
+        runner.assertTransferCount(TailFile.REL_SUCCESS, 0);
     }
 
     private void cleanFiles(String directory) {

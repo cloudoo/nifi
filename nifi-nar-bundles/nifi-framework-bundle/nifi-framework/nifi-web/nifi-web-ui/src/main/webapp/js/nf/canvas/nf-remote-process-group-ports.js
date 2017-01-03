@@ -68,8 +68,9 @@ nf.RemoteProcessGroupPorts = (function () {
                                 dataType: 'json',
                                 contentType: 'application/json'
                             }).done(function (response) {
-                                // TODO - update the revision
-                                // nf.Client.setRevision(response.revision);
+                                // Update the RemoteProcessGroup revision.
+                                // RemotePorts share revision with parent RemoteProcessGroup.
+                                remoteProcessGroupData.revision = response.revision;
 
                                 // get the response
                                 var remotePort = response.remoteProcessGroupPort;
@@ -179,7 +180,7 @@ nf.RemoteProcessGroupPorts = (function () {
                     // clear the remote process group details
                     $('#remote-process-group-ports-id').text('');
                     $('#remote-process-group-ports-name').text('');
-                    $('#remote-process-group-ports-url').text('');
+                    $('#remote-process-group-ports-urls').text('');
 
                     // clear any tooltips
                     var dialog = $('#remote-process-group-ports');
@@ -223,14 +224,14 @@ nf.RemoteProcessGroupPorts = (function () {
                     if (port.exists === true) {
                         transmissionSwitch = (nf.ng.Bridge.injector.get('$compile')($('<md-switch style="margin:0px" class="md-primary enabled-inactive-transmission" aria-label="Toggle port transmission"></md-switch>'))(nf.ng.Bridge.rootScope)).appendTo(portContainerEditContainer);
                     } else {
-                        (nf.ng.Bridge.injector.get('$compile')($('<md-switch style="margin:0px" class="md-primary disabled-inactive-transmission" aria-label="Toggle port transmission"></md-switch>'))(nf.ng.Bridge.rootScope)).appendTo(portContainerEditContainer);
+                        (nf.ng.Bridge.injector.get('$compile')($('<md-switch ng-disabled="true" style="margin:0px" class="md-primary disabled-inactive-transmission" aria-label="Toggle port transmission"></md-switch>'))(nf.ng.Bridge.rootScope)).appendTo(portContainerEditContainer);
                     }
                 }
             } else {
                 if (port.transmitting === true) {
                     (nf.ng.Bridge.injector.get('$compile')($('<md-switch style="margin:0px" class="md-primary disabled-active-transmission" aria-label="Toggle port transmission"></md-switch>'))(nf.ng.Bridge.rootScope)).appendTo(portContainerEditContainer);
                 } else {
-                    (nf.ng.Bridge.injector.get('$compile')($('<md-switch style="margin:0px" class="md-primary disabled-inactive-transmission" aria-label="Toggle port transmission"></md-switch>'))(nf.ng.Bridge.rootScope)).appendTo(portContainerEditContainer);
+                    (nf.ng.Bridge.injector.get('$compile')($('<md-switch ng-disabled="true" style="margin:0px" class="md-primary disabled-inactive-transmission" aria-label="Toggle port transmission"></md-switch>'))(nf.ng.Bridge.rootScope)).appendTo(portContainerEditContainer);
                 }
             }
 
@@ -298,8 +299,9 @@ nf.RemoteProcessGroupPorts = (function () {
                         dataType: 'json',
                         contentType: 'application/json'
                     }).done(function (response) {
-                        // TODO - update the revision
-                        // nf.Client.setRevision(response.revision);
+                        // Update the RemoteProcessGroup revision.
+                        // RemotePorts share revision with parent RemoteProcessGroup.
+                        remoteProcessGroupData.revision = response.revision;
 
                         // get the response
                         var remotePort = response.remoteProcessGroupPort;
@@ -359,7 +361,7 @@ nf.RemoteProcessGroupPorts = (function () {
             if (port.transmitting === true) {
                 (nf.ng.Bridge.injector.get('$compile')($('<md-switch style="margin:0px" class="md-primary disabled-active-transmission" aria-label="Toggle port transmission"></md-switch>'))(nf.ng.Bridge.rootScope)).appendTo(portContainerEditContainer);
             } else {
-                (nf.ng.Bridge.injector.get('$compile')($('<md-switch style="margin:0px" class="md-primary disabled-inactive-transmission" aria-label="Toggle port transmission"></md-switch>'))(nf.ng.Bridge.rootScope)).appendTo(portContainerEditContainer);
+                (nf.ng.Bridge.injector.get('$compile')($('<md-switch ng-disabled="true" style="margin:0px" class="md-primary disabled-inactive-transmission" aria-label="Toggle port transmission"></md-switch>'))(nf.ng.Bridge.rootScope)).appendTo(portContainerEditContainer);
             }
         }
 
@@ -383,7 +385,7 @@ nf.RemoteProcessGroupPorts = (function () {
         var concurrentTasksContainer = $('<div class="concurrent-task-container"></div>').appendTo(portContainerDetailsContainer);
 
         // concurrent tasks
-        var concurrentTasks = $('<div class="setting-value"></div>').append($('<div id="' + portId + '-concurrent-tasks"></div>').text(port.concurrentlySchedulableTaskCount));
+        var concurrentTasks = $('<div class="setting-field"></div>').append($('<div id="' + portId + '-concurrent-tasks"></div>').text(port.concurrentlySchedulableTaskCount));
 
         // add this ports concurrent tasks
         $('<div>' +
@@ -410,7 +412,7 @@ nf.RemoteProcessGroupPorts = (function () {
             '<div class="setting-name">' +
             'Compressed' +
             '</div>' +
-            '<div class="setting-value">' +
+            '<div class="setting-field">' +
             '<div id="' + portId + '-compression">' + compressionLabel + '</div>' +
             '</div>' +
             '</div>').appendTo(compressionContainer);
@@ -420,6 +422,9 @@ nf.RemoteProcessGroupPorts = (function () {
 
         // apply ellipsis where appropriate
         portContainer.find('.ellipsis').ellipsis();
+
+        // inform Angular app values have changed
+        nf.ng.Bridge.digest();
     };
 
     /**
@@ -481,7 +486,7 @@ nf.RemoteProcessGroupPorts = (function () {
                     // populate the port settings
                     $('#remote-process-group-ports-id').text(remoteProcessGroup.id);
                     $('#remote-process-group-ports-name').text(remoteProcessGroup.name);
-                    $('#remote-process-group-ports-url').text(remoteProcessGroup.targetUri);
+                    $('#remote-process-group-ports-urls').text(remoteProcessGroup.targetUris);
 
                     // get the contents
                     var remoteProcessGroupContents = remoteProcessGroup.contents;
@@ -509,6 +514,10 @@ nf.RemoteProcessGroupPorts = (function () {
                             createPortOption(inputPortContainer, inputPort, 'input');
                         });
 
+                        if (nf.Common.isEmpty(connectedInputPorts) && nf.Common.isEmpty(disconnectedInputPorts)) {
+                            $('<div class="unset"></div>').text("No ports to display").appendTo(inputPortContainer);
+                        }
+
                         var connectedOutputPorts = [];
                         var disconnectedOutputPorts = [];
 
@@ -522,15 +531,19 @@ nf.RemoteProcessGroupPorts = (function () {
                             }
                         });
 
-                        // add all connected input ports
+                        // add all connected output ports
                         $.each(connectedOutputPorts, function (_, outputPort) {
                             createPortOption(outputPortContainer, outputPort, 'output');
                         });
 
-                        // add all disconnected input ports
+                        // add all disconnected output ports
                         $.each(disconnectedOutputPorts, function (_, outputPort) {
                             createPortOption(outputPortContainer, outputPort, 'output');
                         });
+
+                        if (nf.Common.isEmpty(connectedOutputPorts) && nf.Common.isEmpty(disconnectedOutputPorts)) {
+                            $('<div class="unset"></div>').text("No ports to display").appendTo(outputPortContainer);
+                        }
                     }
 
                     // show the details

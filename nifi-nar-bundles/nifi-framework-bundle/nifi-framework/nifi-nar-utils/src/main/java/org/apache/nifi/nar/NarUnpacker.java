@@ -72,14 +72,16 @@ public final class NarUnpacker {
             final List<File> narFiles = new ArrayList<>();
 
             // make sure the nar directories are there and accessible
-            FileUtils.ensureDirectoryExistAndCanAccess(frameworkWorkingDir);
-            FileUtils.ensureDirectoryExistAndCanAccess(extensionsWorkingDir);
-            FileUtils.ensureDirectoryExistAndCanAccess(docsWorkingDir);
+            FileUtils.ensureDirectoryExistAndCanReadAndWrite(frameworkWorkingDir);
+            FileUtils.ensureDirectoryExistAndCanReadAndWrite(extensionsWorkingDir);
+            FileUtils.ensureDirectoryExistAndCanReadAndWrite(docsWorkingDir);
 
             for (Path narLibraryDir : narLibraryDirs) {
 
                 File narDir = narLibraryDir.toFile();
-                FileUtils.ensureDirectoryExistAndCanAccess(narDir);
+
+                // Test if the source NARs can be read
+                FileUtils.ensureDirectoryExistAndCanRead(narDir);
 
                 File[] dirFiles = narDir.listFiles(NAR_FILTER);
                 if (dirFiles != null) {
@@ -89,6 +91,8 @@ public final class NarUnpacker {
             }
 
             if (!narFiles.isEmpty()) {
+                final long startTime = System.nanoTime();
+                logger.info("Expanding " + narFiles.size() + " NAR files with all processors... It can take few minutes.");
                 for (File narFile : narFiles) {
                     logger.debug("Expanding NAR file: " + narFile.getAbsolutePath());
 
@@ -143,6 +147,8 @@ public final class NarUnpacker {
                         }
                     }
                 }
+                final long endTime = System.nanoTime();
+                logger.info("NAR loading process took " + (endTime - startTime) + " nanoseconds.");
             }
 
             // attempt to delete any docs files that exist so that any

@@ -79,8 +79,10 @@ import org.apache.nifi.provenance.search.SearchTerm;
 import org.apache.nifi.provenance.search.SearchTerms;
 import org.apache.nifi.provenance.search.SearchableField;
 import org.apache.nifi.registry.VariableRegistry;
+import org.apache.nifi.remote.RemoteGroupPort;
 import org.apache.nifi.remote.RootGroupPort;
 import org.apache.nifi.reporting.ReportingTask;
+import org.apache.nifi.scheduling.ExecutionNode;
 import org.apache.nifi.scheduling.SchedulingStrategy;
 import org.apache.nifi.search.SearchContext;
 import org.apache.nifi.search.SearchResult;
@@ -131,6 +133,7 @@ import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static org.apache.nifi.controller.FlowController.ROOT_GROUP_ID_ALIAS;
 
@@ -786,6 +789,7 @@ public class ControllerFacade implements Authorizable {
         final List<Resource> resources = new ArrayList<>();
         resources.add(ResourceFactory.getFlowResource());
         resources.add(ResourceFactory.getSystemResource());
+        resources.add(ResourceFactory.getRestrictedComponentsResource());
         resources.add(ResourceFactory.getControllerResource());
         resources.add(ResourceFactory.getCountersResource());
         resources.add(ResourceFactory.getProvenanceResource());
@@ -1169,7 +1173,12 @@ public class ControllerFacade implements Authorizable {
             }
 
             // authorize the event
-            final Authorizable dataAuthorizable = flowController.createDataAuthorizable(event.getComponentId());
+            final Authorizable dataAuthorizable;
+            if (event.isRemotePortType()) {
+                dataAuthorizable = flowController.createRemoteDataAuthorizable(event.getComponentId());
+            } else {
+                dataAuthorizable = flowController.createLocalDataAuthorizable(event.getComponentId());
+            }
             dataAuthorizable.authorize(authorizer, RequestAction.READ, user, attributes);
 
             // get the filename and fall back to the identifier (should never happen)
@@ -1212,7 +1221,7 @@ public class ControllerFacade implements Authorizable {
             }
 
             // authorize the replay
-            authorizeReplay(originalEvent.getComponentId(), originalEvent.getAttributes(), originalEvent.getSourceQueueIdentifier());
+            authorizeReplay(originalEvent);
 
             // replay the flow file
             final ProvenanceEventRecord event = flowController.replayFlowFile(originalEvent, user);
@@ -1227,18 +1236,23 @@ public class ControllerFacade implements Authorizable {
     /**
      * Authorizes access to replay a specified provenance event.
      *
-     * @param componentId component id
-     * @param eventAttributes event attributes
-     * @param connectionId connection id
+     * @param event event
      */
-    private AuthorizationResult checkAuthorizationForReplay(final String componentId, final Map<String, String> eventAttributes, final String connectionId) {
+    private AuthorizationResult checkAuthorizationForReplay(final ProvenanceEventRecord event) {
         // if the connection id isn't specified, then the replay wouldn't be available anyways and we have nothing to authorize against so deny it`
-        if (connectionId == null) {
+        if (event.getSourceQueueIdentifier() == null) {
             return AuthorizationResult.denied();
         }
 
         final NiFiUser user = NiFiUserUtils.getNiFiUser();
-        final Authorizable dataAuthorizable = flowController.createDataAuthorizable(componentId);
+        final Authorizable dataAuthorizable;
+        if (event.isRemotePortType()) {
+            dataAuthorizable = flowController.createRemoteDataAuthorizable(event.getComponentId());
+        } else {
+            dataAuthorizable = flowController.createLocalDataAuthorizable(event.getComponentId());
+        }
+
+        final Map<String, String> eventAttributes = event.getAttributes();
 
         // ensure we can read the data
         final AuthorizationResult result = dataAuthorizable.checkAuthorization(authorizer, RequestAction.READ, user, eventAttributes);
@@ -1253,20 +1267,24 @@ public class ControllerFacade implements Authorizable {
     /**
      * Authorizes access to replay a specified provenance event.
      *
-     * @param componentId component id
-     * @param eventAttributes event attributes
-     * @param connectionId connection id
+     * @param event event
      */
-    private void authorizeReplay(final String componentId, final Map<String, String> eventAttributes, final String connectionId) {
+    private void authorizeReplay(final ProvenanceEventRecord event) {
         // if the connection id isn't specified, then the replay wouldn't be available anyways and we have nothing to authorize against so deny it`
-        if (connectionId == null) {
+        if (event.getSourceQueueIdentifier() == null) {
             throw new AccessDeniedException("The connection id is unknown.");
         }
 
         final NiFiUser user = NiFiUserUtils.getNiFiUser();
-        final Authorizable dataAuthorizable = flowController.createDataAuthorizable(componentId);
+        final Authorizable dataAuthorizable;
+        if (event.isRemotePortType()) {
+            dataAuthorizable = flowController.createRemoteDataAuthorizable(event.getComponentId());
+        } else {
+            dataAuthorizable = flowController.createLocalDataAuthorizable(event.getComponentId());
+        }
 
         // ensure we can read and write the data
+        final Map<String, String> eventAttributes = event.getAttributes();
         dataAuthorizable.authorize(authorizer, RequestAction.READ, user, eventAttributes);
         dataAuthorizable.authorize(authorizer, RequestAction.WRITE, user, eventAttributes);
     }
@@ -1286,7 +1304,12 @@ public class ControllerFacade implements Authorizable {
 
             // get the flowfile attributes and authorize the event
             final Map<String, String> attributes = event.getAttributes();
-            final Authorizable dataAuthorizable = flowController.createDataAuthorizable(event.getComponentId());
+            final Authorizable dataAuthorizable;
+            if (event.isRemotePortType()) {
+                dataAuthorizable = flowController.createRemoteDataAuthorizable(event.getComponentId());
+            } else {
+                dataAuthorizable = flowController.createLocalDataAuthorizable(event.getComponentId());
+            }
             dataAuthorizable.authorize(authorizer, RequestAction.READ, NiFiUserUtils.getNiFiUser(), attributes);
 
             // convert the event
@@ -1294,16 +1317,6 @@ public class ControllerFacade implements Authorizable {
         } catch (final IOException ioe) {
             throw new NiFiCoreException("An error occurred while getting the specified event.", ioe);
         }
-    }
-
-    /**
-     * Gets an authorizable for proveance events for a given component id.
-     *
-     * @param componentId component id
-     * @return authorizable
-     */
-    public Authorizable getDataAuthorizable(final String componentId) {
-        return flowController.createDataAuthorizable(componentId);
     }
 
     /**
@@ -1391,7 +1404,7 @@ public class ControllerFacade implements Authorizable {
         }
 
         // determine if authorized for event replay
-        final AuthorizationResult replayAuthorized = checkAuthorizationForReplay(event.getComponentId(), event.getAttributes(), event.getSourceQueueIdentifier());
+        final AuthorizationResult replayAuthorized = checkAuthorizationForReplay(event);
 
         // replay
         dto.setReplayAvailable(contentAvailability.isReplayable() && Result.Approved.equals(replayAuthorized.getResult()));
@@ -1429,10 +1442,32 @@ public class ControllerFacade implements Authorizable {
     private void setComponentDetails(final ProvenanceEventDTO dto) {
         final ProcessGroup root = flowController.getGroup(flowController.getRootGroupId());
 
-        final Connectable connectable = root.findConnectable(dto.getComponentId());
+        final Connectable connectable = root.findLocalConnectable(dto.getComponentId());
         if (connectable != null) {
             dto.setGroupId(connectable.getProcessGroup().getIdentifier());
             dto.setComponentName(connectable.getName());
+            return;
+        }
+
+        final RemoteGroupPort remoteGroupPort = root.findRemoteGroupPort(dto.getComponentId());
+        if (remoteGroupPort != null) {
+            dto.setGroupId(remoteGroupPort.getProcessGroupIdentifier());
+            dto.setComponentName(remoteGroupPort.getName());
+            return;
+        }
+
+        final Connection connection = root.findConnection(dto.getComponentId());
+        if (connection != null) {
+            dto.setGroupId(connection.getProcessGroup().getIdentifier());
+
+            String name = connection.getName();
+            final Collection<Relationship> relationships = connection.getRelationships();
+            if (StringUtils.isBlank(name) && CollectionUtils.isNotEmpty(relationships)) {
+                name = StringUtils.join(relationships.stream().map(relationship -> relationship.getName()).collect(Collectors.toSet()), ", ");
+            }
+            dto.setComponentName(name);
+
+            return;
         }
     }
 
@@ -1589,7 +1624,13 @@ public class ControllerFacade implements Authorizable {
         } else if (SchedulingStrategy.TIMER_DRIVEN.equals(procNode.getSchedulingStrategy()) && StringUtils.containsIgnoreCase("timer", searchStr)) {
             matches.add("Scheduling strategy: Timer driven");
         } else if (SchedulingStrategy.PRIMARY_NODE_ONLY.equals(procNode.getSchedulingStrategy()) && StringUtils.containsIgnoreCase("primary", searchStr)) {
+            // PRIMARY_NODE_ONLY has been deprecated as a SchedulingStrategy and replaced by PRIMARY as an ExecutionNode.
             matches.add("Scheduling strategy: On primary node");
+        }
+
+        // consider execution node
+        if (ExecutionNode.PRIMARY.equals(procNode.getExecutionNode()) && StringUtils.containsIgnoreCase("primary", searchStr)) {
+            matches.add("Execution node: primary");
         }
 
         // consider scheduled state
@@ -1647,7 +1688,7 @@ public class ControllerFacade implements Authorizable {
             final SearchContext context = new StandardSearchContext(searchStr, procNode, flowController, variableRegistry);
 
             // search the processor using the appropriate thread context classloader
-            try (final NarCloseable x = NarCloseable.withComponentNarLoader(processor.getClass())) {
+            try (final NarCloseable x = NarCloseable.withComponentNarLoader(processor.getClass(), processor.getIdentifier())) {
                 final Collection<SearchResult> searchResults = searchable.search(context);
                 if (CollectionUtils.isNotEmpty(searchResults)) {
                     for (final SearchResult searchResult : searchResults) {
@@ -1781,7 +1822,7 @@ public class ControllerFacade implements Authorizable {
         addIfAppropriate(searchStr, group.getIdentifier(), "Id", matches);
         addIfAppropriate(searchStr, group.getName(), "Name", matches);
         addIfAppropriate(searchStr, group.getComments(), "Comments", matches);
-        addIfAppropriate(searchStr, group.getTargetUri().toString(), "URL", matches);
+        addIfAppropriate(searchStr, group.getTargetUris(), "URLs", matches);
 
         // consider the transmission status
         if ((StringUtils.containsIgnoreCase("transmitting", searchStr) || StringUtils.containsIgnoreCase("transmission enabled", searchStr)) && group.isTransmitting()) {

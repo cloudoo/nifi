@@ -213,7 +213,7 @@ nf.Port = (function () {
                             .attr({
                                 'class': 'port-transmission-icon',
                                 'x': 10,
-                                'y': 15
+                                'y': 18
                             });
 
                         // bulletin background
@@ -340,9 +340,15 @@ nf.Port = (function () {
             .attr({
                 'fill': function (d) {
                     var fill = '#728e9b';
-                    if (d.status.aggregateSnapshot.runStatus === 'Invalid') {
-                        fill = '#ba554a';
+
+                    if  (d.status.aggregateSnapshot.runStatus === 'Invalid') {
+                        fill = '#cf9f5d';
+                    } else if (d.status.aggregateSnapshot.runStatus === 'Running') {
+                        fill = '#7dc7a0';
+                    } else if (d.status.aggregateSnapshot.runStatus === 'Stopped') {
+                        fill = '#d18686';
                     }
+
                     return fill;
                 },
                 'font-family': function (d) {
@@ -404,7 +410,7 @@ nf.Port = (function () {
         updated.select('text.port-transmission-icon')
             .attr({
                 'font-family': function (d) {
-                    if (d.status.aggregateSnapshot.transmitting === true) {
+                    if (d.status.transmitting === true) {
                         return 'FontAwesome';
                     } else {
                         return 'flowfont';
@@ -412,10 +418,24 @@ nf.Port = (function () {
                 }
             })
             .text(function (d) {
-                if (d.status.aggregateSnapshot.transmitting === true) {
+                if (d.status.transmitting === true) {
                     return '\uf140';
                 } else {
                     return '\ue80a';
+                }
+            })
+            .classed('transmitting', function (d) {
+                if (d.status.transmitting === true) {
+                    return true;
+                } else {
+                    return false;
+                }
+            })
+            .classed('not-transmitting', function (d) {
+                if (d.status.transmitting !== true) {
+                    return true;
+                } else {
+                    return false;
                 }
             });
 

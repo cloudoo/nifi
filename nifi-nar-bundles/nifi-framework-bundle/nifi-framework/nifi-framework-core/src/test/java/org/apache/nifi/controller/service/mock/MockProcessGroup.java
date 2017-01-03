@@ -33,6 +33,7 @@ import org.apache.nifi.controller.service.ControllerServiceNode;
 import org.apache.nifi.groups.ProcessGroup;
 import org.apache.nifi.groups.ProcessGroupCounts;
 import org.apache.nifi.groups.RemoteProcessGroup;
+import org.apache.nifi.remote.RemoteGroupPort;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -57,6 +58,11 @@ public class MockProcessGroup implements ProcessGroup {
 
     @Override
     public ProcessGroup getParent() {
+        return null;
+    }
+
+    @Override
+    public String getProcessGroupIdentifier() {
         return null;
     }
 
@@ -503,7 +509,12 @@ public class MockProcessGroup implements ProcessGroup {
     }
 
     @Override
-    public Connectable findConnectable(final String identifier) {
+    public Connectable findLocalConnectable(final String identifier) {
+        return null;
+    }
+
+    @Override
+    public RemoteGroupPort findRemoteGroupPort(String identifier) {
         return null;
     }
 

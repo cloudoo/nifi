@@ -499,7 +499,7 @@ nf.RemoteProcessGroup = (function () {
                             remoteProcessGroupUri.text(null).selectAll('title').remove();
 
                             // apply ellipsis to the remote process group name as necessary
-                            nf.CanvasUtils.ellipsis(remoteProcessGroupUri, d.component.targetUri);
+                            nf.CanvasUtils.ellipsis(remoteProcessGroupUri, d.component.targetUris);
                         }).append('title').text(function (d) {
                         return d.component.name;
                     });
@@ -711,8 +711,14 @@ nf.RemoteProcessGroup = (function () {
                 }
                 return family;
             })
-            .classed('has-authorization-errors', function (d) {
+            .classed('invalid', function (d) {
                 return d.permissions.canRead && !nf.Common.isEmpty(d.component.authorizationIssues);
+            })
+            .classed('transmitting', function (d) {
+                return d.permissions.canRead && nf.Common.isEmpty(d.component.authorizationIssues) && d.component.transmitting === true;
+            })
+            .classed('not-transmitting', function (d) {
+                return d.permissions.canRead && nf.Common.isEmpty(d.component.authorizationIssues) && d.component.transmitting === false;
             })
             .each(function (d) {
                 // get the tip

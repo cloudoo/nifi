@@ -19,16 +19,16 @@ package org.apache.nifi.stream.io;
 import java.io.InputStream;
 
 /**
- * This class is a slight modification of the BufferedInputStream in the java.io package. The modification is that this implementation does not provide synchronization on method calls, which means
- * that this class is not suitable for use by multiple threads. However, the absence of these synchronized blocks results in potentially much better performance.
+ * @deprecated use java.io.BufferedInputStream instead
  */
+@Deprecated
 public class BufferedInputStream extends java.io.BufferedInputStream {
 
-    public BufferedInputStream(final InputStream in) {
+    public BufferedInputStream(InputStream in) {
         super(in);
     }
 
-    public BufferedInputStream(final InputStream in, final int size) {
-        super(in, size);
+    public BufferedInputStream(InputStream in, int bufferSize) {
+        super(in, bufferSize);
     }
 }

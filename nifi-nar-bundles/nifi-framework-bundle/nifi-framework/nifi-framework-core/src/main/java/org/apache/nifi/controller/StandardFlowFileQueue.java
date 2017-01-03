@@ -448,7 +448,8 @@ public class StandardFlowFileQueue implements FlowFileQueue {
         // Swap Queue to the Active Queue. However, we don't do this if there are FlowFiles already swapped out
         // to disk, because we want them to be swapped back in in the same order that they were swapped out.
 
-        if (activeQueue.size() > swapThreshold - SWAP_RECORD_POLL_SIZE) {
+        final int activeQueueSize = activeQueue.size();
+        if (activeQueueSize > 0 && activeQueueSize > swapThreshold - SWAP_RECORD_POLL_SIZE) {
             return;
         }
 
@@ -820,6 +821,7 @@ public class StandardFlowFileQueue implements FlowFileQueue {
         long swapByteCount = 0L;
         Long maxId = null;
         List<ResourceClaim> resourceClaims = new ArrayList<>();
+        final long startNanos = System.nanoTime();
 
         writeLock.lock();
         try {
@@ -864,6 +866,11 @@ public class StandardFlowFileQueue implements FlowFileQueue {
             this.swapLocations.addAll(swapLocations);
         } finally {
             writeLock.unlock("Recover Swap Files");
+        }
+
+        if (!swapLocations.isEmpty()) {
+            final long millis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
+            logger.info("Recovered {} swap files for {} in {} millis", swapLocations.size(), this, millis);
         }
 
         return new StandardSwapSummary(new QueueSize(swapFlowFileCount, swapByteCount), maxId, resourceClaims);
